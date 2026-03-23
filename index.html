@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Curating Influence: The Physical Reality of MoMA's Walls</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400&display=swap');
+
+  :root {
+    --board: #B33025;
+    --board-fill: rgba(179,48,37,0.68);
+    --board-light: rgba(179,48,37,0.05);
+    --exp-diversity: #C47F17;
+    --exp-recent: #2A7CB5;
+    --exp-gender: #9B4D96;
+    --exp-medium: #5A8A5E;
+    --neutral-fill: rgba(130,125,118,0.38);
+    --neutral-stroke: rgba(120,115,108,0.55);
+    --content-light: rgba(100,120,110,0.03);
+    --bg: #FAF9F7;
+    --card: #FFFFFF;
+    --text: #1C1917;
+    --dim: #78716C;
+    --muted: #A8A29E;
+    --rule: #E7E5E4;
+    --serif: 'Newsreader', Georgia, serif;
+    --sans: 'Inter', system-ui, sans-serif;
+    --mono: 'JetBrains Mono', monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); line-height: 1.55; -webkit-font-smoothing: antialiased; }
+  #container { max-width: 1080px; margin: 0 auto; padding: 52px 36px 72px; }
+
+  h1 { font-family: var(--serif); font-size: 2.1rem; font-weight: 700; line-height: 1.15; margin-bottom: 12px; letter-spacing: -0.01em; }
+  .subtitle { font-size: 0.84rem; font-weight: 300; color: var(--dim); max-width: 740px; line-height: 1.75; margin-bottom: 32px; }
+  .subtitle strong { font-weight: 500; color: var(--text); }
+  .subtitle .hl { color: var(--board); font-weight: 600; }
+
+  .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--rule); border-radius: 6px; overflow: hidden; margin-bottom: 28px; }
+  .stat-card { background: var(--card); padding: 16px 20px; }
+  .stat-big { font-family: var(--serif); font-size: 1.55rem; font-weight: 700; line-height: 1.1; }
+  .stat-desc { font-size: 0.64rem; color: var(--muted); margin-top: 3px; font-weight: 300; }
+
+  .controls-bar { display: flex; gap: 24px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; padding: 10px 16px; background: var(--card); border: 1px solid var(--rule); border-radius: 6px; }
+  .ctrl { display: flex; align-items: center; gap: 8px; }
+  .ctrl-label { font-size: 0.62rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.09em; color: var(--muted); }
+  .slider-group { display: flex; align-items: center; gap: 6px; }
+  .slider-group input[type="range"] { width: 100px; accent-color: var(--dim); }
+  .slider-val { font-family: var(--mono); font-size: 0.7rem; color: var(--dim); min-width: 22px; text-align: right; }
+
+  .pill-toggle { display: flex; border: 1px solid var(--rule); border-radius: 4px; overflow: hidden; }
+  .pill-toggle button { font-family: var(--sans); font-size: 0.72rem; font-weight: 500; padding: 4px 12px; border: none; background: var(--card); color: var(--dim); cursor: pointer; transition: all 0.12s; }
+  .pill-toggle button.active { background: var(--text); color: #fff; }
+  .pill-toggle button:not(:last-child) { border-right: 1px solid var(--rule); }
+
+  .explain-btn { font-family: var(--sans); font-size: 0.72rem; font-weight: 500; padding: 4px 14px; border: 1.5px solid var(--board); border-radius: 4px; background: transparent; color: var(--board); cursor: pointer; transition: all 0.15s; }
+  .explain-btn:hover { background: rgba(179,48,37,0.04); }
+  .explain-btn.active { background: var(--board); color: #fff; }
+
+  .med-checks { display: flex; flex-wrap: wrap; gap: 2px 10px; }
+  .med-checks label { display: flex; align-items: center; gap: 4px; font-size: 0.74rem; color: #57534E; cursor: pointer; user-select: none; }
+  .med-checks input[type="checkbox"] { accent-color: #57534E; width: 12px; height: 12px; }
+
+  .legend-bar { display: flex; gap: 16px; align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 0.66rem; color: var(--dim); }
+  .lg-dot { width: 9px; height: 9px; border-radius: 50%; }
+  .lg-ring { width: 9px; height: 9px; border-radius: 50%; border: 2.5px solid; background: transparent; }
+
+  #chart-wrap { position: relative; background: var(--card); border: 1px solid var(--rule); border-radius: 6px; padding: 14px 14px 6px; overflow: hidden; }
+  .medium-label { font-family: var(--sans); font-size: 11.5px; font-weight: 500; fill: var(--text); }
+  .lane-label { font-family: var(--mono); font-size: 8px; font-weight: 400; letter-spacing: 0.06em; }
+  .tick text { font-family: var(--mono); font-size: 9.5px; fill: var(--muted); }
+  .domain { stroke: var(--rule); }
+  .tick line { stroke: var(--rule); }
+  .axis-label { font-family: var(--mono); font-size: 9.5px; fill: var(--muted); letter-spacing: 0.03em; }
+
+  #tooltip { position: absolute; pointer-events: none; background: #fff; border: 1px solid #e0dfdc; border-radius: 5px; padding: 12px 15px; font-size: 0.76rem; line-height: 1.5; max-width: 290px; opacity: 0; transition: opacity 0.1s; z-index: 100; box-shadow: 0 4px 16px rgba(0,0,0,0.07); }
+  .tt-name { font-family: var(--serif); font-size: 0.95rem; font-weight: 600; margin-bottom: 1px; }
+  .tt-badge { display: inline-block; font-size: 0.52rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; padding: 1px 5px; border-radius: 2px; margin-left: 5px; vertical-align: middle; }
+  .tt-medium { font-size: 0.66rem; color: var(--muted); margin-bottom: 5px; }
+  .tt-row { display: flex; justify-content: space-between; gap: 10px; padding: 1px 0; }
+  .tt-label { color: var(--muted); }
+  .tt-val { font-weight: 600; font-family: var(--mono); font-size: 0.7rem; }
+  .tt-divider { border-top: 1px solid #f0efed; margin: 6px 0; }
+  .tt-reason { font-size: 0.66rem; }
+  .reason-tag { display: inline-block; padding: 2px 7px; border-radius: 3px; font-size: 0.6rem; font-weight: 500; margin: 1px 2px; }
+
+  .footer-note { font-size: 0.62rem; color: var(--muted); line-height: 1.7; max-width: 700px; margin-top: 28px; padding-top: 14px; border-top: 1px solid var(--rule); }
+  #loading { text-align: center; padding: 80px 0; color: var(--muted); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+<div id="container">
+  <h1>Curating Influence: The Physical Reality of MoMA's Walls</h1>
+  <p class="subtitle">
+    Each circle is one donor's lifetime contribution to a specific medium. Size encodes volume donated.
+    Row heights are <strong>proportional to wall presence</strong>: Painting dominates.
+    Toggle <strong>"Explain"</strong> to see whether visibility comes from
+    <span class="hl">board connections</span> or from content factors.
+  </p>
+
+  <div id="loading">Loading data...</div>
+  <div id="main" style="display:none;">
+    <div class="stats-row" id="stats-row"></div>
+    <div class="controls-bar">
+      <div class="ctrl"><span class="ctrl-label">Mediums</span><div class="med-checks" id="med-checks"></div></div>
+      <div class="ctrl"><span class="ctrl-label">Metric</span>
+        <div class="pill-toggle" id="metric-toggle">
+          <button class="active" data-val="worksOnView">#</button>
+          <button data-val="displayRate">%</button>
+        </div>
+      </div>
+      <div class="ctrl"><span class="ctrl-label">Min. donated</span>
+        <div class="slider-group"><input type="range" id="min-slider" min="5" max="100" value="5" step="1"><span class="slider-val" id="min-val">5</span></div>
+      </div>
+      <div class="ctrl"><button class="explain-btn" id="explain-btn">Explain</button></div>
+    </div>
+
+    <div class="legend-bar" id="legend-bar">
+      <div class="legend-item"><div class="lg-dot" style="background:var(--board)"></div>Board-connected</div>
+      <div class="legend-item"><div class="lg-dot" style="background:#8A857F"></div>Other donor</div>
+      <div class="legend-item split-leg" style="display:none"><div class="lg-ring" style="border-color:var(--exp-diversity)"></div>Non-Western / diversity</div>
+      <div class="legend-item split-leg" style="display:none"><div class="lg-ring" style="border-color:var(--exp-recent)"></div>Recent acquisition</div>
+      <div class="legend-item split-leg" style="display:none"><div class="lg-ring" style="border-color:var(--exp-gender)"></div>Women artists</div>
+      <div class="legend-item" style="margin-left:4px">
+        <svg width="52" height="16"><circle cx="5" cy="8" r="2.5" fill="none" stroke="#999"/><circle cx="17" cy="8" r="5" fill="none" stroke="#999"/><circle cx="35" cy="8" r="9" fill="none" stroke="#999"/></svg>
+        <span style="font-size:0.6rem;color:var(--muted)">volume donated</span>
+      </div>
+    </div>
+
+    <div id="chart-wrap">
+      <svg id="chart"></svg>
+      <div id="tooltip"></div>
+    </div>
+
+    <div class="footer-note">
+      Data: MoMA Collection dataset (GitHub). Board membership verified against moma.org trustee
+      listings and Annual Reports 2015 through 2024. Row heights proportional to works on display
+      per medium. Visualization by Nilay Roy, SI 649, University of Michigan.
+    </div>
+  </div>
+</div>
+
+<script>
+(async function() {
+
+  let data;
+  try { data = await (await fetch('moma_donor_viz.json')).json(); }
+  catch(e) { document.getElementById('loading').textContent = 'Could not load moma_donor_viz.json.'; return; }
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('main').style.display = 'block';
+
+  const allClusters = data.clusters;
+  const mediumOrder = data.mediumOrder;
+  const medOnView = {};
+  data.mediums.forEach(m => { medOnView[m.classification] = m.onView; });
+
+  const BOARD = '#B33025';
+  const BOARD_FILL = 'rgba(179,48,37,0.68)';
+  const NEUTRAL_FILL = 'rgba(130,125,118,0.38)';
+  const NEUTRAL_STROKE = 'rgba(120,115,108,0.55)';
+
+  const EXP = {
+    diversity: { fill: 'rgba(196,127,23,0.45)', stroke: '#C47F17', label: 'Non-Western / global diversity' },
+    recent:    { fill: 'rgba(42,124,181,0.4)',   stroke: '#2A7CB5', label: 'Acquired post-2000' },
+    gender:    { fill: 'rgba(155,77,150,0.4)',    stroke: '#9B4D96', label: 'Women artists' },
+    medium:    { fill: 'rgba(90,138,94,0.35)',    stroke: '#5A8A5E', label: 'High-display medium' },
+    none:      { fill: 'rgba(130,125,118,0.38)',  stroke: 'rgba(120,115,108,0.55)', label: 'No single factor' },
+  };
+
+  // ── Stats ───────────────────────────────────────────────────────────
+  const bs = data.boardSummary, os = data.otherSummary;
+  document.getElementById('stats-row').innerHTML = `
+    <div class="stat-card"><div class="stat-big" style="color:var(--board)">${(bs.display_rate*100).toFixed(1)}%</div><div class="stat-desc">Board-connected display rate<br>(${bs.on_view.toLocaleString()} of ${bs.total_works.toLocaleString()} works)</div></div>
+    <div class="stat-card"><div class="stat-big" style="color:#5A8A5E">${(os.display_rate*100).toFixed(1)}%</div><div class="stat-desc">Other donors' display rate<br>(${os.on_view.toLocaleString()} of ${os.total_works.toLocaleString()} works)</div></div>
+    <div class="stat-card"><div class="stat-big">${(bs.display_rate/Math.max(os.display_rate,0.0001)).toFixed(1)}×</div><div class="stat-desc">Board donor<br>display advantage</div></div>
+    <div class="stat-card"><div class="stat-big">${data.totalOnView.toLocaleString()}</div><div class="stat-desc">of ${data.totalArtworks.toLocaleString()} works<br>on view (${(data.overallDisplayRate*100).toFixed(1)}%)</div></div>
+  `;
+
+  // ── Medium checkboxes ───────────────────────────────────────────────
+  const medChecksEl = document.getElementById('med-checks');
+  mediumOrder.forEach(m => {
+    const lbl = document.createElement('label');
+    lbl.innerHTML = `<input type="checkbox" value="${m}" checked> ${m}`;
+    medChecksEl.appendChild(lbl);
+  });
+
+  // ── Layout: extra right margin for lane labels ──────────────────────
+  const wrap = document.getElementById('chart-wrap');
+  const margin = { top: 10, right: 62, bottom: 44, left: 96 };
+  const fullW = Math.min(wrap.clientWidth - 28, 1020);
+  const W = fullW - margin.left - margin.right;
+
+  const svg = d3.select('#chart');
+  const gMain = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+  const rowsG = gMain.append('g');
+  const gridG = gMain.append('g');
+  const laneG = gMain.append('g');
+  const dotsG = gMain.append('g');
+  const xAxisG = gMain.append('g');
+  const xLabelEl = svg.append('text').attr('class','axis-label').attr('text-anchor','middle');
+
+  const maxTotal = d3.max(allClusters, d => d.totalWorks) || 100;
+  const rScale = d3.scaleSqrt().domain([0, maxTotal]).range([2.5, 22]);
+
+  let xField = 'worksOnView';
+  let minWorks = 5;
+  let splitMode = false;
+
+  function getActive() { return [...medChecksEl.querySelectorAll('input:checked')].map(c => c.value); }
+  function getFiltered() {
+    const s = new Set(getActive());
+    return allClusters.filter(d => s.has(d.medium) && d.totalWorks >= minWorks);
+  }
+
+  function computeRowHeights(activeOrder) {
+    const MIN_ROW = 36;
+    const BUDGET = splitMode ? 780 : 560;
+    const sqrts = {};
+    activeOrder.forEach(m => { sqrts[m] = Math.sqrt(medOnView[m] || 1); });
+    const totalSqrt = Object.values(sqrts).reduce((a, b) => a + b, 0);
+    const raw = {};
+    activeOrder.forEach(m => { raw[m] = (sqrts[m] / totalSqrt) * BUDGET; });
+    let deficit = 0, aboveMin = 0;
+    activeOrder.forEach(m => {
+      if (raw[m] < MIN_ROW) { deficit += MIN_ROW - raw[m]; raw[m] = MIN_ROW; }
+      else aboveMin += raw[m];
+    });
+    if (deficit > 0 && aboveMin > 0) {
+      activeOrder.forEach(m => { if (raw[m] > MIN_ROW) raw[m] -= deficit * (raw[m] / aboveMin); });
+    }
+    const heights = {};
+    activeOrder.forEach(m => { heights[m] = Math.round(raw[m]); });
+    return heights;
+  }
+
+  function makeX(filtered) {
+    const mx = d3.max(filtered, d => d[xField] || 0) || 1;
+    if (xField === 'displayRate') return d3.scaleLinear().domain([0, Math.min(mx * 1.15, 1)]).range([0, W]);
+    return d3.scaleSqrt().domain([0, mx * 1.1]).range([0, W]);
+  }
+
+  function dotFill(d) {
+    if (d.isBoard) return BOARD_FILL;
+    if (!splitMode) return NEUTRAL_FILL;
+    const e = EXP[d.dominantReason];
+    return e ? e.fill : NEUTRAL_FILL;
+  }
+  function dotStroke(d) {
+    if (d.isBoard) return BOARD;
+    if (!splitMode) return NEUTRAL_STROKE;
+    const e = EXP[d.dominantReason];
+    return e ? e.stroke : NEUTRAL_STROKE;
+  }
+  function dotStrokeW(d) {
+    if (d.isBoard) return 1.2;
+    if (splitMode && d.dominantReason !== 'none') return 2.2;
+    return 0.6;
+  }
+  function dotOpacity(d) {
+    return d.isBoard ? 0.9 : (splitMode ? 0.78 : 0.55);
+  }
+
+  // ── Tooltip ─────────────────────────────────────────────────────────
+  const tooltip = d3.select('#tooltip');
+  function showTip(ev, d) {
+    const rc = d.residual > 0.01 ? 'var(--board)' : d.residual < -0.01 ? '#2A7CB5' : 'var(--muted)';
+    const rs = d.residual > 0 ? '+' : '';
+    let reasonHTML;
+    if (d.isBoard) {
+      reasonHTML = `<span class="reason-tag" style="background:rgba(179,48,37,0.08);color:var(--board)">Board-connected</span>`;
+    } else if (d.dominantReason && d.dominantReason !== 'none') {
+      const e = EXP[d.dominantReason];
+      reasonHTML = `<span class="reason-tag" style="background:${e.stroke}18;color:${e.stroke}">${e.label}</span>`;
+    } else {
+      reasonHTML = `<span class="reason-tag" style="background:#f0efed;color:var(--muted)">No single factor</span>`;
+    }
+    tooltip.html(`
+      <div class="tt-name">${d.name}${d.isBoard ? '<span class="tt-badge" style="background:rgba(179,48,37,0.08);color:var(--board)">Board</span>' : ''}</div>
+      <div class="tt-medium">${d.medium}${d.medianYear ? ' · acquired ~' + Math.round(d.medianYear) : ''}</div>
+      <div class="tt-row"><span class="tt-label">Donated</span><span class="tt-val">${d.totalWorks.toLocaleString()}</span></div>
+      <div class="tt-row"><span class="tt-label">On view</span><span class="tt-val">${d.worksOnView}</span></div>
+      <div class="tt-row"><span class="tt-label">Display rate</span><span class="tt-val">${(d.displayRate * 100).toFixed(1)}%</span></div>
+      <div class="tt-row"><span class="tt-label">Expected</span><span class="tt-val">${(d.expectedRate * 100).toFixed(1)}%</span></div>
+      <div class="tt-row"><span class="tt-label">Residual</span><span class="tt-val" style="color:${rc}">${rs}${(d.residual * 100).toFixed(1)}%</span></div>
+      <div class="tt-divider"></div>
+      <div class="tt-reason">${reasonHTML}</div>
+      <div style="margin-top:4px;font-size:0.58rem;color:var(--muted)">${(d.pctNonWestern * 100).toFixed(0)}% non-Western · ${(d.pctFemale * 100).toFixed(0)}% women · ${(d.pctRecent * 100).toFixed(0)}% post-2000</div>
+    `).style('opacity', 1);
+    posTip(ev);
+  }
+  function posTip(ev) {
+    const r = wrap.getBoundingClientRect();
+    let x = ev.clientX - r.left + 14, y = ev.clientY - r.top - 10;
+    if (x + 290 > r.width) x -= 310; if (y + 230 > r.height) y -= 240; if (y < 0) y = 10;
+    tooltip.style('left', x + 'px').style('top', y + 'px');
+  }
+  function hideTip() { tooltip.style('opacity', 0); }
+
+  // ── Draw ────────────────────────────────────────────────────────────
+  function update() {
+    const activeOrder = getActive();
+    const filtered = getFiltered();
+    const rowH = computeRowHeights(activeOrder);
+
+    const yStart = {};
+    let cumY = 0;
+    activeOrder.forEach(m => { yStart[m] = cumY; cumY += rowH[m]; });
+    const H = cumY;
+
+    svg.attr('width', fullW).attr('height', H + margin.top + margin.bottom);
+    const xScale = makeX(filtered);
+
+    document.querySelectorAll('.split-leg').forEach(el => { el.style.display = splitMode ? '' : 'none'; });
+
+    const fmt = xField === 'displayRate' ? d3.format('.0%') : d3.format('~s');
+    xAxisG.attr('transform', `translate(0,${H})`).transition().duration(400)
+      .call(d3.axisBottom(xScale).ticks(7).tickFormat(fmt).tickSize(4));
+    xLabelEl.attr('x', margin.left + W / 2).attr('y', H + margin.top + 36)
+      .text(xField === 'displayRate' ? 'Display Rate (%)' : 'Works Currently On View (sqrt scale)');
+
+    // ── Rows: horizontal lines instead of alternating bg ──────────────
+    const rows = rowsG.selectAll('.rg').data(activeOrder, d => d);
+    rows.exit().remove();
+    const re = rows.enter().append('g').attr('class', 'rg');
+    re.append('line').attr('class', 'row-line-top');
+    re.append('line').attr('class', 'row-line-bot');
+    re.append('text').attr('class', 'medium-label');
+    re.append('rect').attr('class', 'lane-top');
+    re.append('rect').attr('class', 'lane-bot');
+    re.append('line').attr('class', 'lane-div');
+
+    const rm = re.merge(rows);
+
+    // Subtle horizontal lines at row boundaries
+    rm.select('.row-line-top')
+      .attr('x1', 0).attr('x2', W)
+      .attr('stroke', '#E5E3E0').attr('stroke-width', 0.7)
+      .transition().duration(500)
+      .attr('y1', d => yStart[d]).attr('y2', d => yStart[d]);
+
+    rm.select('.row-line-bot')
+      .attr('x1', 0).attr('x2', W)
+      .attr('stroke', '#E5E3E0').attr('stroke-width', 0.7)
+      .transition().duration(500)
+      .attr('y1', d => yStart[d] + rowH[d]).attr('y2', d => yStart[d] + rowH[d]);
+
+    rm.select('.medium-label').attr('x', -8).attr('text-anchor', 'end').attr('dominant-baseline', 'central')
+      .text(d => d).transition().duration(500).attr('y', d => yStart[d] + rowH[d] / 2);
+
+    // Lane tints (split mode only)
+    rm.select('.lane-top').attr('x', 0).attr('width', W).attr('rx', 2).attr('fill', 'var(--board-light)')
+      .transition().duration(500).attr('y', d => yStart[d] + 1).attr('height', d => rowH[d] * 0.47)
+      .style('opacity', splitMode ? 1 : 0);
+    rm.select('.lane-bot').attr('x', 0).attr('width', W).attr('rx', 2).attr('fill', 'var(--content-light)')
+      .transition().duration(500).attr('y', d => yStart[d] + rowH[d] * 0.53).attr('height', d => rowH[d] * 0.47 - 1)
+      .style('opacity', splitMode ? 1 : 0);
+    rm.select('.lane-div').attr('x1', 0).attr('x2', W).attr('stroke', '#D6D3D1').attr('stroke-width', 0.5).attr('stroke-dasharray', '3 3')
+      .transition().duration(500)
+      .attr('y1', d => yStart[d] + rowH[d] * 0.5).attr('y2', d => yStart[d] + rowH[d] * 0.5)
+      .style('opacity', splitMode ? 0.5 : 0);
+
+    // Lane labels (placed inside the wider right margin)
+    const ll = laneG.selectAll('.ll').data(splitMode ? activeOrder : [], d => d);
+    ll.exit().remove();
+    const lle = ll.enter().append('g').attr('class', 'll');
+    lle.append('text').attr('class', 'lane-label lt');
+    lle.append('text').attr('class', 'lane-label lb');
+    const llm = lle.merge(ll);
+    llm.select('.lt').attr('x', W + 6).attr('text-anchor', 'start').text('BOARD').style('fill', 'var(--board)')
+      .transition().duration(500).attr('y', d => yStart[d] + rowH[d] * 0.25 + 3);
+    llm.select('.lb').attr('x', W + 6).attr('text-anchor', 'start').text('CONTENT').style('fill', '#5A8A5E')
+      .transition().duration(500).attr('y', d => yStart[d] + rowH[d] * 0.75 + 3);
+
+    // Vertical grid
+    const gt = xScale.ticks(7);
+    const gl = gridG.selectAll('.vg').data(gt, d => d);
+    gl.exit().remove();
+    gl.enter().append('line').attr('class', 'vg').merge(gl)
+      .attr('y1', 0).attr('y2', H).attr('stroke', '#F0EFED').attr('stroke-width', 0.5)
+      .transition().duration(400).attr('x1', d => xScale(d)).attr('x2', d => xScale(d));
+
+    // ── Dot positioning ───────────────────────────────────────────────
+    filtered.forEach(d => {
+      const h = rowH[d.medium];
+      const top = yStart[d.medium];
+      const hash = d.name.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+      const jitter = ((hash % 100) / 100 - 0.5);
+      if (splitMode) {
+        const laneH = h * 0.47;
+        if (d.isBoard) {
+          d._y = top + 1 + laneH * 0.5 + jitter * laneH * 0.7;
+        } else {
+          d._y = top + h * 0.53 + laneH * 0.5 + jitter * laneH * 0.7;
+        }
+      } else {
+        d._y = top + h / 2 + jitter * h * 0.6;
+      }
+    });
+
+    // ── SORT: largest first so small dots render on top ────────────────
+    // Secondary sort: board on top of same-size non-board
+    const sorted = [...filtered].sort((a, b) => {
+      const sizeDiff = b.totalWorks - a.totalWorks;  // large first (painted first, behind)
+      if (sizeDiff !== 0) return sizeDiff;
+      return (a.isBoard ? 1 : 0) - (b.isBoard ? 1 : 0);  // board on top
+    });
+
+    const dots = dotsG.selectAll('.dot').data(sorted, d => d.name + '|' + d.medium);
+    dots.exit().transition().duration(300).attr('r', 0).remove();
+
+    dots.enter().append('circle').attr('class', 'dot').attr('r', 0).style('cursor', 'pointer')
+      .merge(dots)
+      .on('mouseenter', function(ev, d) {
+        d3.select(this).raise(); // bring hovered dot fully to front
+        d3.select(this).transition().duration(80)
+          .attr('stroke', '#1C1917').attr('stroke-width', 2.5).style('opacity', 1);
+        showTip(ev, d);
+      })
+      .on('mousemove', posTip)
+      .on('mouseleave', function(ev, d) {
+        d3.select(this).transition().duration(150)
+          .attr('stroke', dotStroke(d)).attr('stroke-width', dotStrokeW(d)).style('opacity', dotOpacity(d));
+        hideTip();
+      })
+      .transition().duration(600)
+      .attr('cx', d => xScale(d[xField] || 0))
+      .attr('cy', d => d._y)
+      .attr('r', d => rScale(d.totalWorks))
+      .attr('fill', dotFill)
+      .attr('stroke', dotStroke)
+      .attr('stroke-width', dotStrokeW)
+      .style('opacity', dotOpacity);
+  }
+
+  // ── Events ──────────────────────────────────────────────────────────
+  medChecksEl.addEventListener('change', update);
+  document.querySelectorAll('#metric-toggle button').forEach(btn => {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('#metric-toggle button').forEach(b => b.classList.remove('active'));
+      this.classList.add('active');
+      xField = this.dataset.val;
+      update();
+    });
+  });
+  document.getElementById('min-slider').addEventListener('input', function() {
+    minWorks = +this.value;
+    document.getElementById('min-val').textContent = minWorks;
+    update();
+  });
+  document.getElementById('explain-btn').addEventListener('click', function() {
+    splitMode = !splitMode;
+    this.classList.toggle('active', splitMode);
+    this.textContent = splitMode ? 'Collapse' : 'Explain';
+    update();
+  });
+
+  update();
+})();
+</script>
+</body>
+</html>
